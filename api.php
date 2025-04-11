@@ -1,7 +1,6 @@
 <?php
 
 // Define o cabeçalho para JSON e permite requisições de outros domínios (CORS)
-
 header("Content-Type: application/json");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
@@ -12,7 +11,6 @@ $input = json_decode(file_get_contents('php://input'), true);
 $produtosFile = 'produtos.json';
 
 // Função para carregar os produtos do arquivo
-
 function carregarProdutos() {
     global $produtosFile;
     if (!file_exists($produtosFile)) {
@@ -23,68 +21,67 @@ function carregarProdutos() {
 }
 
 // Função para salvar os produtos no arquivo
-
 function salvarProdutos($produtos) {
     global $produtosFile;
     file_put_contents($produtosFile, json_encode($produtos, JSON_PRETTY_PRINT));
 }
 
 // Função para obter o próximo ID disponível
-
 function proximoId($produtos) {
     $ids = array_column($produtos, 'id');
     return empty($ids) ? 1 : max($ids) + 1;
 }
 
 // Rota e lógica principal
-
 $uri = $_SERVER['REQUEST_URI'];
 $uri = explode('?', $uri)[0]; // Remove parâmetros da URL
 
 if (preg_match('/\/produtos(\?.*)?$/', $uri)) {
     $produtos = carregarProdutos();
 
-    switch($method) {
+    switch ($method) {
         case 'GET':
-
-            // Verifica se estamos acessando /produtos/{id}
-
+            // Para /produtos/{id} ou /produtos
             $partes = explode('/', trim($uri, '/'));
+
+            // Se o caminho for /api.php/produtos/{id}
             if (count($partes) === 3 && is_numeric($partes[2])) {
                 $id = (int) $partes[2];
                 $produto = array_filter($produtos, fn($p) => $p['id'] === $id);
+
                 if (empty($produto)) {
                     http_response_code(404);
                     echo json_encode(['erro' => 'Produto não encontrado']);
                 } else {
                     echo json_encode(array_values($produto)[0]);
                 }
-                break;
             }
-        
-            // Filtro por nome
-            
-            if (isset($_GET['nome'])) {
+            // Se for /produtos?nome=xxx
+            elseif (isset($_GET['nome'])) {
                 $nomeBusca = strtolower($_GET['nome']);
                 $filtrados = array_filter($produtos, function($produto) use ($nomeBusca) {
                     return strpos(strtolower($produto['nome']), $nomeBusca) !== false;
                 });
                 echo json_encode(array_values($filtrados));
-            } else {
+            }
+            // Se for apenas /produtos
+            else {
                 echo json_encode($produtos);
             }
-            break;        
+            break;
 
         case 'POST':
-            if (!isset($input['nome']) || !isset($input['preco'])) {
+            // Verifica se os campos 'nome', 'preco' e 'quantidade' estão presentes
+            if (!isset($input['nome']) || !isset($input['preco']) || !isset($input['quantidade'])) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Nome e preço são obrigatórios']);
+                echo json_encode(['error' => 'Nome, preço e quantidade são obrigatórios']);
                 exit;
             }
             $novoProduto = [
                 'id' => proximoId($produtos),
                 'nome' => $input['nome'],
                 'preco' => $input['preco'],
+                'quantidade' => $input['quantidade'],
             ];
             $produtos[] = $novoProduto;
             salvarProdutos($produtos);
@@ -105,21 +102,21 @@ if (preg_match('/\/produtos(\?.*)?$/', $uri)) {
                 if ($p['id'] === $id) {
                     $p['nome'] = $input['nome'] ?? $p['nome'];
                     $p['preco'] = $input['preco'] ?? $p['preco'];
+                    $p['quantidade'] = $input['quantidade'] ?? $p['quantidade'];
                     $encontrado = true;
                     break;
                 }
             }
-        }
 
-        if (!$encontrado) {
-            http_response_code(404);
-            echo json_encode(['erro' => 'Produto não encontrado']);
-            exit;
-        }
+            if (!$encontrado) {
+                http_response_code(404);
+                echo json_encode(['erro' => 'Produto não encontrado']);
+                exit;
+            }
 
-        salvarProdutos($produtos);
-        echo json_encode(['mensagem' => 'Produto atualizado com sucesso']);
-        break;
+            salvarProdutos($produtos);
+            echo json_encode(['mensagem' => 'Produto atualizado com sucesso']);
+            break;
 
         case 'DELETE':
             parse_str($_SERVER['QUERY_STRING'], $params);
@@ -140,7 +137,7 @@ if (preg_match('/\/produtos(\?.*)?$/', $uri)) {
             salvarProdutos(array_values($novoArray));
             echo json_encode(['mensagem' => 'Produto excluído com sucesso']);
             break;
-        
+
         default:
             http_response_code(405);
             echo json_encode(['erro' => 'Método não permitido']);
