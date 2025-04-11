@@ -4,5 +4,11 @@
         "nome": "Pregos",
         "preco": 2,
         "quantidade": 500
+    },
+    {
+        "id": 2,
+        "nome": "Martelo",
+        "preco": 30,
+        "quantidade": 100
     }
 ]
